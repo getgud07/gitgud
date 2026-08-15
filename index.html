@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitCool</title>
+
+<!-- Leaflet + heatmap -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<!-- Chart.js for the Budget Graph -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#12151b;
+  --bg-elevated:#181d25;
+  --surface:#1f2530;
+  --surface-2:#262d3a;
+  --line:#333c4a;
+  --text:#eee8dc;
+  --text-dim:#9aa4b3;
+  --text-faint:#69707e;
+
+  --cool:#3aa0d8;
+  --mild:#52a074;
+  --warm:#e8b23c;
+  --hotband:#e8752e;
+  --veryhot:#d8431e;
+  --extreme:#a11f0e;
+
+  --mid:#e8b23c;
+  --hot:#d8431e;
+  --green:#52a074;
+  --green-dim:#2f5c43;
+  --gov:#7c8bdb;
+  --gov-dim:#3a3f66;
+
+  --grad-thermal: linear-gradient(90deg, var(--cool) 0%, var(--warm) 50%, var(--extreme) 100%);
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+html{scroll-behavior:smooth;}
+body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; line-height:1.55; -webkit-font-smoothing:antialiased; }
+h1,h2,h3,h4{font-family:'Fraunces',serif; font-weight:600; letter-spacing:-0.01em;}
+.mono{font-family:'JetBrains Mono',monospace;}
+a{color:inherit;}
+img{max-width:100%;display:block;}
+
+::selection{ background:var(--hot); color:#fff; }
+
+.wrap{max-width:1180px; margin:0 auto; padding:0 28px;}
+section{padding:88px 0;}
+.eyebrow{ font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-faint); display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.eyebrow::before{ content:''; width:22px; height:2px; background:var(--grad-thermal); display:inline-block; }
+.section-title{font-size:clamp(26px,3.4vw,38px); margin-bottom:10px;}
+.section-sub{color:var(--text-dim); max-width:640px; font-size:15.5px; margin-bottom:44px;}
+
+nav{ position:sticky; top:0; z-index:900; background:rgba(18,21,27,0.86); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); }
+.nav-inner{ max-width:1180px; margin:0 auto; padding:0 28px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+.brand{display:flex; align-items:center; gap:10px; font-family:'Fraunces',serif; font-weight:600; font-size:17px;}
+.brand-mark{ width:26px; height:26px; border-radius:7px; background:var(--grad-thermal); flex-shrink:0; }
+.brand-sub{color:var(--text-faint); font-size:11px; font-family:'JetBrains Mono',monospace; letter-spacing:.06em;}
+.tabs{display:flex; gap:4px; flex-wrap:wrap;}
+.tab-btn{ background:none; border:none; color:var(--text-dim); font-family:'Inter',sans-serif; font-size:13.5px; font-weight:500; padding:10px 14px; border-radius:8px; cursor:pointer; position:relative; transition:color .15s ease; }
+.tab-btn:hover, .tab-btn.active{color:var(--text);}
+.tab-btn.active::after{ content:''; position:absolute; left:14px; right:14px; bottom:2px; height:2px; background:var(--grad-thermal); border-radius:2px; }
+
+.hero{ padding:72px 0 40px; border-bottom:1px solid var(--line); background: radial-gradient(ellipse 900px 420px at 85% -10%, rgba(216,67,30,0.16), transparent 60%), radial-gradient(ellipse 700px 380px at 10% 110%, rgba(58,160,160,0.10), transparent 60%); }
+.hero-grid{display:grid; grid-template-columns:1.1fr .9fr; gap:56px; align-items:center;}
+.hero h1{font-size:clamp(32px,4.6vw,50px); line-height:1.06; margin-bottom:20px;}
+.hero h1 em{font-style:normal; color:var(--hot);}
+.hero p{color:var(--text-dim); font-size:16px; max-width:520px; margin-bottom:28px;}
+
+.thermo-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:22px; position:relative; overflow:hidden; }
+.thermo-card::before{ content:''; position:absolute; inset:0; height:4px; background:var(--grad-thermal); }
+.thermo-bar{ height:14px; border-radius:7px; background:var(--grad-thermal); margin:18px 0 8px; position:relative; }
+.thermo-labels{display:flex; justify-content:space-between; font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono',monospace;}
+.thermo-legend-list{list-style:none; margin-top:18px; display:flex; flex-direction:column; gap:9px;}
+.thermo-legend-list li{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--text-dim);}
+.dot{width:9px;height:9px;border-radius:50%; flex-shrink:0;}
+
+.btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; background:var(--hot); color:#fff; border:none; border-radius:9px; padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer; font-family:'Inter'; transition:transform .12s ease, opacity .12s ease; }
+.btn:hover{opacity:.9;}
+.btn.green{background:var(--green);}
+.btn.secondary{background:var(--surface-2); color:var(--text); border:1px solid var(--line);}
+
+select, input[type=range]{accent-color:var(--hot);}
+select{ background:var(--surface-2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:'Inter'; font-size:13.5px; width:100%; }
+
+.view{display:none;}
+.view.active{display:block;}
+
+.city-toggle{ display:flex; gap:10px; margin-bottom:15px; background:var(--bg-elevated); padding:6px; border-radius:10px; border:1px solid var(--line); width:fit-content; }
+.city-btn{ background:transparent; border:none; color:var(--text-dim); padding:8px 16px; border-radius:6px; cursor:pointer; font-family:'Inter'; font-weight:600; font-size:13px; transition:0.2s; }
+.city-btn.active{ background:var(--surface-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line); }
+
+.map-shell{ display:grid; grid-template-columns:1fr 300px; gap:20px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
+
+/* ---- Map overlay UI (search / reset / legend / click hint) ---- */
+.map-container{ position:relative; height:520px; border-radius:var(--radius-sm); overflow:hidden; background:#0c0e12; }
+#map{ position:absolute; inset:0; width:100%; height:100%; }
+
+.map-search-overlay{ position:absolute; top:16px; left:16px; right:16px; z-index:450; display:flex; gap:10px; flex-wrap:wrap; pointer-events:none; }
+.map-search-overlay > *{ pointer-events:auto; }
+.map-search-box{ display:flex; align-items:center; gap:9px; background:rgba(20,24,31,0.92); border:1px solid var(--line); border-radius:10px; padding:0 6px 0 14px; backdrop-filter:blur(10px); width:300px; max-width:60vw; height:44px; box-shadow:0 6px 18px rgba(0,0,0,0.35); }
+.map-search-box span.icon{color:var(--text-faint); font-size:14px;}
+.map-search-box input{ background:transparent; border:none; color:var(--text); font-size:13.5px; flex:1; outline:none; height:100%; }
+.map-search-box input::placeholder{color:var(--text-faint);}
+.map-search-btn{ height:44px; background:var(--gov); color:#fff; border:none; border-radius:9px; padding:0 20px; font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap; box-shadow:0 6px 18px rgba(0,0,0,0.35); font-family:'Inter'; transition:opacity .12s ease; }
+.map-search-btn:hover{opacity:.88;}
+.map-reset-btn{ height:44px; display:flex; align-items:center; gap:7px; background:rgba(20,24,31,0.92); border:1px solid var(--line); border-radius:9px; padding:0 16px; font-size:13.5px; font-weight:600; color:var(--text); cursor:pointer; backdrop-filter:blur(10px); box-shadow:0 6px 18px rgba(0,0,0,0.35); font-family:'Inter'; transition:border-color .12s ease; }
+.map-reset-btn:hover{border-color:var(--text-faint);}
+.map-search-status{ width:100%; font-size:11.5px; color:var(--text-faint); font-family:'JetBrains Mono',monospace; min-height:14px; padding-left:2px; }
+.map-search-status.err{color:var(--hot);}
+
+.map-legend-overlay{ position:absolute; bottom:16px; left:16px; z-index:440; background:rgba(20,24,31,0.92); border:1px solid var(--line); border-radius:12px; padding:14px 16px; backdrop-filter:blur(10px); min-width:172px; box-shadow:0 6px 18px rgba(0,0,0,0.35); }
+.map-legend-overlay h4{ font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin-bottom:10px; display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-weight:700; }
+.legend-row{ display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--text-dim); margin-bottom:7px; white-space:nowrap; }
+.legend-row:last-child{margin-bottom:0;}
+.legend-swatch{width:12px; height:12px; border-radius:4px; flex-shrink:0; box-shadow:0 0 0 1px rgba(255,255,255,0.08);}
+
+.map-click-hint{ position:absolute; bottom:16px; left:50%; transform:translateX(-50%); z-index:440; background:rgba(20,24,31,0.92); border:1px solid var(--line); border-radius:20px; padding:10px 20px; font-size:12.5px; color:var(--text-dim); backdrop-filter:blur(10px); white-space:nowrap; pointer-events:none; box-shadow:0 6px 18px rgba(0,0,0,0.35); transition:opacity .2s ease; }
+.map-click-hint.flash{color:var(--green); border-color:var(--green);}
+
+.map-side h4{font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin-bottom:12px; font-family:'JetBrains Mono';}
+.map-legend{background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius-sm); padding:14px; margin-bottom:14px;}
+.zone-list{max-height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;}
+.zone-item{ display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--bg-elevated); border:1px solid var(--line); border-radius:7px; padding:9px 11px; font-size:12.5px; cursor:pointer; transition:border-color .12s; }
+.zone-item:hover{border-color:var(--hot);}
+.zone-item.custom{border-style:dashed;}
+.zone-temp{font-family:'JetBrains Mono'; font-weight:700;}
+.zone-remove{ background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:14px; line-height:1; padding:2px 4px; }
+.zone-remove:hover{color:var(--hot);}
+
+/* Leaflet control tweaks so our overlay owns the corners we use */
+.leaflet-top.leaflet-left{ display:none; } /* hide default zoom top-left, we re-add top-right */
+.leaflet-control-attribution{ background:rgba(12,14,18,0.7) !important; color:var(--text-faint) !important; font-size:9.5px !important; }
+.leaflet-control-attribution a{color:var(--text-dim) !important;}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#181d25;color:#eee8dc;border:1px solid #333c4a;}
+.leaflet-popup-content{margin:13px 15px;font-family:Inter,sans-serif;font-size:12.5px;line-height:1.55;}
+.leaflet-popup-content b{font-family:Fraunces,serif;font-size:15px;}
+.google-map-link{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 9px;background:#7c8bdb;color:#fff!important;border-radius:6px;text-decoration:none!important;font-weight:600;font-size:11.5px;}
+.google-map-link:hover{opacity:.88;}
+.map-loading{opacity:.7;pointer-events:none;}
+
+/* Split Screen Maps */
+.split-maps-container { display:flex; gap:15px; margin-top:20px; margin-bottom:20px; height: 320px; }
+.sim-sub-map { flex:1; border-radius:var(--radius-sm); border:1px solid var(--line); background:#0c0e12; overflow:hidden; position:relative; }
+.sim-map-label { position:absolute; top:10px; left:10px; z-index:400; background:rgba(0,0,0,0.7); padding:4px 10px; border-radius:6px; font-family:'JetBrains Mono'; font-size:11px; color:#fff; border:1px solid var(--line); pointer-events:none;}
+
+.sim-grid{display:grid; grid-template-columns:360px 1fr; gap:28px;}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:24px;}
+.field{margin-bottom:22px;}
+.field label{display:flex; justify-content:space-between; font-size:13.5px; font-weight:500; margin-bottom:10px;}
+.field label .val{font-family:'JetBrains Mono'; color:var(--green); font-weight:700;}
+input[type=range]{width:100%; height:5px; border-radius:3px; background:var(--surface-2); appearance:none; cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{appearance:none; width:16px; height:16px; border-radius:50%; background:var(--green); border:2px solid #0c0e12; cursor:pointer;}
+.check-row{display:flex; align-items:center; gap:10px; font-size:13.5px; margin-bottom:10px; cursor:pointer;}
+
+.result-compare{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:10px;}
+.result-box{background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius-sm); padding:18px; text-align:center;}
+.result-box .tag{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); font-family:'JetBrains Mono';}
+.result-box .big{font-family:'JetBrains Mono'; font-size:34px; font-weight:700; margin:8px 0;}
+.swatch{ width:34px; height:34px; border-radius:50%; margin:0 auto 10px; border:2px solid rgba(255,255,255,0.25); transition: background-color .7s ease, box-shadow .7s ease;}
+
+details { background:var(--bg-elevated); border:1px solid var(--line); padding:12px; border-radius:8px; margin-top:14px; cursor:pointer;}
+summary { font-weight:600; font-family:'Inter'; font-size:13px; color:var(--text); outline:none; }
+details[open] summary { color:var(--green); margin-bottom:10px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+.details-content { font-size:13px; color:var(--text-dim); line-height:1.6; padding-left:14px; border-left:2px solid var(--green); }
+
+.cards-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+@media (max-width:920px){
+  .cards-grid{grid-template-columns:repeat(2,1fr);}
+  .sim-grid, .map-shell, .split-maps-container {grid-template-columns:1fr; flex-direction:column;}
+  .split-maps-container { height: 600px; }
+  .map-search-box{width:100%; max-width:none;}
+  .map-search-overlay{right:16px;}
+  .map-click-hint{max-width:90%; white-space:normal; text-align:center;}
+}
+
+.impact-bars{display:flex; flex-direction:column; gap:14px; margin-top:8px;}
+.impact-row .top-line{display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; color:var(--text-dim);}
+.bar-track{height:9px; background:var(--surface-2); border-radius:5px; overflow:hidden;}
+.bar-fill{height:100%; border-radius:5px; transition:width .5s ease;}
+
+.mode-toggle{display:flex; gap:8px; margin-bottom:22px; background:var(--bg-elevated); padding:5px; border-radius:11px; border:1px solid var(--line);}
+.mode-btn{flex:1; background:none; border:none; color:var(--text-dim); font-size:12.5px; font-weight:600; padding:10px 8px; border-radius:8px; cursor:pointer;}
+.mode-btn.active{background:var(--surface-2); color:var(--text);}
+.btn.hotbtn{background:var(--hot);}
+.health-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px;}
+
+/* Animations and Viz Panel Styles */
+.viz-panel{background:var(--bg-elevated); border:1px solid var(--line); border-left:3px solid var(--green); border-radius:var(--radius-sm); padding:16px 18px; margin-bottom:22px; transition:border-color .3s ease;}
+.viz-panel.heat-mode{border-left-color:var(--hot);}
+.viz-heading{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint); margin-bottom:14px;}
+.viz-row{display:flex; gap:18px; flex-wrap:wrap;}
+.viz-item{flex:1; min-width:96px; display:flex; flex-direction:column; align-items:center; gap:9px; text-align:center;}
+.viz-icons{height:34px; display:flex; align-items:flex-end; justify-content:center; gap:2px; flex-wrap:wrap;}
+.tree-icon{font-size:19px; display:inline-block; line-height:1; transform:scale(0) translateY(6px); opacity:0; transition:transform .5s cubic-bezier(.34,1.56,.64,1), opacity .4s ease, filter .5s ease;}
+.tree-icon.grown{transform:scale(1) translateY(0); opacity:1;}
+.tree-icon.wilt{transform:scale(.65) rotate(12deg) translateY(2px); opacity:.55; filter:grayscale(.7) saturate(.5);}
+.viz-fill-box{width:100%; height:10px; background:var(--surface-2); border-radius:5px; overflow:hidden;}
+.viz-fill{height:100%; width:0%; background:var(--green); border-radius:5px; transition:width .8s ease, background .4s ease;}
+.viz-swatch-row{display:flex; gap:3px; height:34px; align-items:flex-end; justify-content:center;}
+.pave-sq{width:13px; height:13px; border-radius:3px; background:#555; transition:background .6s ease, box-shadow .5s ease;}
+.viz-water-circle{width:28px; height:28px; border-radius:50%; background:var(--cool); opacity:.15; transform:scale(.3); transition:all .7s ease; margin:3px 0;}
+.viz-water-circle.active{opacity:.9; transform:scale(1); box-shadow:0 0 14px 2px rgba(58,160,160,.5);}
+.viz-vine{width:7px; height:6px; background:linear-gradient(var(--green),var(--green-dim)); border-radius:3px; transition:height .8s ease, background .5s ease; margin-top:auto;}
+.viz-vine.withered{background:linear-gradient(#8a6a3c,#4a3620);}
+.viz-vine-wrap{height:48px; display:flex; align-items:flex-end; justify-content:center;}
+.viz-label{font-size:11px; color:var(--text-faint); font-family:'JetBrains Mono',monospace;}
+
+#autoOptimizeGuide { display:none; background:rgba(82, 160, 116, 0.08); padding:20px; border-radius:8px; margin-top:20px; font-size:13.5px; color:var(--text); border:1px solid var(--green); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+#autoOptimizeGuide h4 { color:var(--green); margin-bottom:12px; font-size: 15px;}
+#optimizeSteps li { margin-bottom: 10px; line-height: 1.5; color:var(--text-dim); }
+#optimizeSteps strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <div>GitCool <span class="brand-sub">/ HEAT ISLAND PLANNER</span></div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-view="map">Heat Map & Search</button>
+      <button class="tab-btn" data-view="simulate">Simulator</button>
+      <button class="tab-btn" data-view="citizen">Citizen Action</button>
+      <button class="tab-btn" data-view="gov">Govt & Budget</button>
+      <button class="tab-btn" data-view="health">Health Hazards</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ============ HEAT MAP VIEW ============ -->
+  <section id="view-map" class="view active">
+    <div class="eyebrow">01 — Identify & Search</div>
+    <h2 class="section-title">High-risk heat zones</h2>
+
+    <div class="city-toggle">
+      <button class="city-btn active" id="btnDelhi" onclick="switchCity('Delhi')">📍 Delhi NCR</button>
+      <button class="city-btn" id="btnJaipur" onclick="switchCity('Jaipur')">📍 Jaipur</button>
+      <button class="city-btn" id="btnGlobal" style="display:none;" onclick="switchCity('Global Search')">🌍 Custom Search</button>
+    </div>
+
+    <div class="map-shell">
+      <div class="map-container" id="mapContainer">
+        <div id="map"></div>
+
+        <div class="map-search-overlay">
+          <div class="map-search-box">
+            <span class="icon">🔍</span>
+            <input type="text" id="mapSearchInput" placeholder="Search a city or area...">
+          </div>
+          <button class="map-search-btn" id="mapSearchBtn">Search</button>
+          <button class="map-reset-btn" id="mapResetBtn">↺ Reset Map</button>
+          <button class="map-reset-btn" id="googleMapsBtn" title="Open the current map location in Google Maps">↗ Google Maps</button>
+          <div class="map-search-status" id="mapSearchStatus"></div>
+        </div>
+
+        <div class="map-legend-overlay">
+          <h4>📍 Heat Severity</h4>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--cool)"></span> &lt;36°C · Cool</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--mild)"></span> 36–38°C · Mild</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--warm)"></span> 38–40°C · Warm</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--hotband)"></span> 40–42°C · Hot</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--veryhot)"></span> 42–44°C · Very Hot</div>
+          <div class="legend-row"><span class="legend-swatch" style="background:var(--extreme)"></span> &gt;44°C · Extreme</div>
+        </div>
+
+        <div class="map-click-hint" id="mapClickHint">Click anywhere on the map to generate a heat zone</div>
+      </div>
+
+      <div class="map-side">
+        <h4>Zones in Current City</h4>
+        <div class="zone-list" id="zoneList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SIMULATE VIEW ============ -->
+  <section id="view-simulate" class="view">
+    <div class="eyebrow">02 — Simulate</div>
+    <h2 class="section-title">Optimize Interventions</h2>
+    
+    <div class="sim-grid">
+      <div class="card">
+        <div class="mode-toggle" role="tablist">
+          <button type="button" class="mode-btn active" id="modeBtnCool" onclick="setSimMode('cool')">🌿 Cooling</button>
+          <button type="button" class="mode-btn" id="modeBtnHeat" onclick="setSimMode('heat')">🔥 Heating</button>
+        </div>
+
+        <div class="field">
+          <label>Target zone</label>
+          <select id="simZoneSelect"></select>
+        </div>
+
+        <button class="btn secondary" onclick="autoOptimizeZone()" id="autoOptBtn" style="width:100%; margin-bottom: 20px;">⚡ Auto-Optimize Zone</button>
+
+        <div id="coolFields">
+          <div class="field">
+            <label>Green roof coverage <span class="val" id="valGreenRoof">0%</span></label>
+            <input type="range" id="greenRoof" min="0" max="100" value="0">
+          </div>
+          <div class="field">
+            <label>New trees planted <span class="val" id="valTrees">0</span></label>
+            <input type="range" id="trees" min="0" max="500" step="10" value="0">
+          </div>
+          <div class="field">
+            <label>Reflective / cool pavement <span class="val" id="valPavement">0%</span></label>
+            <input type="range" id="pavement" min="0" max="100" value="0">
+          </div>
+          <label class="check-row"><input type="checkbox" id="waterBody"> Add water body / blue infra</label>
+          <label class="check-row"><input type="checkbox" id="wallGreening"> Vertical wall greening</label>
+        </div>
+
+        <div id="heatFields" style="display:none;">
+          <div class="field">
+            <label>Tree cover removed <span class="val" id="valDeforest">0%</span></label>
+            <input type="range" id="deforest" min="0" max="100" value="0">
+          </div>
+          <div class="field">
+            <label>Unregulated fresh asphalt & tree-felling <span class="val" id="valDarkPavement">0%</span></label>
+            <input type="range" id="darkPavement" min="0" max="100" value="0">
+          </div>
+          <div class="field">
+            <label>New diesel generators / ACs <span class="val" id="valGenerators">0</span></label>
+            <input type="range" id="generators" min="0" max="50" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="result-compare">
+          <div class="result-box before">
+            <div class="tag">Baseline LST</div>
+            <div class="big" id="beforeTemp" style="color:var(--hot)">--°C</div>
+            <div class="tag" id="beforeZoneName">select a zone</div>
+          </div>
+          <div class="result-box after" id="afterBox">
+            <div class="tag">Simulated LST</div>
+            <div class="big" id="afterTemp" style="color:var(--green)">--°C</div>
+            <div class="tag" id="tempDelta">–</div>
+          </div>
+        </div>
+
+        <!-- Before/After Split Maps -->
+        <div class="split-maps-container">
+          <div class="sim-sub-map" id="simMapBeforeContainer">
+            <div class="sim-map-label">Before</div>
+            <div id="simMapBefore" style="width:100%; height:100%;"></div>
+          </div>
+          <div class="sim-sub-map" id="simMapAfterContainer">
+            <div class="sim-map-label">After Intervention</div>
+            <div id="simMapAfter" style="width:100%; height:100%;"></div>
+          </div>
+        </div>
+
+        <!-- Visual Animation Panel -->
+        <div class="viz-panel" id="vizPanel">
+          <div class="viz-heading" id="vizHeading">Live intervention preview</div>
+          <div class="viz-row">
+            <div class="viz-item">
+              <div class="viz-icons" id="vizTreeIcons"></div>
+              <span class="viz-label" id="vizTreeLabel">Tree canopy</span>
+            </div>
+            <div class="viz-item">
+              <div class="viz-fill-box"><div class="viz-fill" id="vizRoofFill"></div></div>
+              <span class="viz-label" id="vizRoofLabel">Green roof</span>
+            </div>
+            <div class="viz-item">
+              <div class="viz-swatch-row" id="vizPavementSwatch"></div>
+              <span class="viz-label" id="vizPavementLabel">Pavement</span>
+            </div>
+            <div class="viz-item">
+              <div class="viz-water-circle" id="vizWaterCircle"></div>
+              <span class="viz-label" id="vizWaterLabel">Water body</span>
+            </div>
+            <div class="viz-item">
+              <div class="viz-vine-wrap"><div class="viz-vine" id="vizVine"></div></div>
+              <span class="viz-label" id="vizWallLabel">Wall greening</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="impact-bars">
+          <div class="impact-row">
+            <div class="top-line"><span id="lblTemp">Surface temperature reduction</span><span class="mono" id="tempReducePct">0%</span></div>
+            <div class="bar-track"><div class="bar-fill" id="barTemp" style="width:0%; background:var(--cool);"></div></div>
+          </div>
+          <div class="impact-row">
+            <div class="top-line"><span id="lblEnergy">Estimated AC energy saved</span><span class="mono" id="energyPct">0%</span></div>
+            <div class="bar-track"><div class="bar-fill" id="barEnergy" style="width:0%; background:var(--green);"></div></div>
+          </div>
+        </div>
+
+        <div id="autoOptimizeGuide">
+          <h4>📋 Actionable Prescription Plan</h4>
+          <p style="margin-bottom:10px; font-size:12px;">To achieve this optimized cooling effect in the selected zone, implement the following exact requirements:</p>
+          <ul id="optimizeSteps"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CITIZEN ACTION VIEW ============ -->
+  <section id="view-citizen" class="view">
+    <div class="eyebrow">03 — How You Can Help</div>
+    <h2 class="section-title">Citizen Actions for Urban Cooling</h2>
+    <p class="section-sub">Small interventions don't cool a whole ward, but they compound quickly across a street or housing society. Click to expand on how you can help cool your immediate area.</p>
+
+    <div class="health-grid" id="citizenCards"></div>
+  </section>
+
+  <!-- ============ GOVERNMENT & BUDGET VIEW ============ -->
+  <section id="view-gov" class="view">
+    <div class="eyebrow">04 — Act at Scale</div>
+    <h2 class="section-title">Government Projects & Budget Comparison</h2>
+    <p class="section-sub">Detailed breakdown of municipal programs and their capital requirements.</p>
+
+    <div class="cards-grid" id="govCards"></div>
+
+    <div style="background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:24px; margin-top:40px; display:flex; flex-wrap:wrap; gap:30px; align-items:center;">
+      <div style="flex:1; min-width:300px;">
+        <h3 style="margin-bottom:12px;">Budget Perspective: Cooling a City vs. National Spending</h3>
+        <p style="font-size:13.5px; color:var(--text-dim); margin-bottom:15px;">A common misconception is that urban climate interventions are prohibitively expensive. This pie chart compares the estimated capital required for a comprehensive city-wide urban cooling mission (₹1,200 Cr) against the planned expenditures of major Indian Union Budget sectors (2024-2025 allocations).</p>
+        <p style="font-size:12px; color:var(--text-faint);">* Notice how the green "Urban Cooling" slice is barely visible compared to other national expenditures.</p>
+      </div>
+      <div style="flex:1; min-width:300px; max-width:400px; margin:0 auto;">
+        <canvas id="budgetChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HEALTH HAZARD VIEW ============ -->
+  <section id="view-health" class="view">
+    <div class="eyebrow">05 — Why it matters</div>
+    <h2 class="section-title">Interactive Health Hazard Elaborations</h2>
+    <p class="section-sub">Urban heat islands translate directly into severe health and economic outcomes. Click each hazard below to expand the clinical and demographic elaborations.</p>
+
+    <div class="health-grid" id="healthCards"></div>
+  </section>
+
+</main>
+
+<script>
+/* ---------------- CORE DATA ---------------- */
+const SEED_ZONES = [
+  // Delhi
+  {name:"Mayapuri Industrial Area", lat:28.6280, lng:77.1250, lst:46.2, green:4, city:"Delhi"},
+  {name:"Okhla Industrial Area", lat:28.5310, lng:77.2760, lst:45.6, green:5, city:"Delhi"},
+  {name:"Bawana Industrial Area", lat:28.7990, lng:77.0330, lst:45.1, green:6, city:"Delhi"},
+  {name:"Karol Bagh", lat:28.6520, lng:77.1900, lst:42.4, green:10, city:"Delhi"},
+  {name:"Connaught Place", lat:28.6315, lng:77.2167, lst:40.5, green:16, city:"Delhi"},
+  {name:"Delhi Ridge / Sanjay Van", lat:28.5480, lng:77.1660, lst:33.8, green:72, city:"Delhi"},
+
+  // Jaipur
+  {name:"Sitapura Industrial Area", lat:26.7645, lng:75.8360, lst:46.0, green:3, city:"Jaipur"},
+  {name:"Walled City / Johari Bazaar", lat:26.9220, lng:75.8277, lst:44.2, green:4, city:"Jaipur"},
+  {name:"Manipal University Jaipur (MUJ)", lat:26.8437, lng:75.5652, lst:43.8, green:15, city:"Jaipur"},
+  {name:"Mansarovar", lat:26.8530, lng:75.7629, lst:42.5, green:12, city:"Jaipur"},
+  {name:"C-Scheme", lat:26.9061, lng:75.8016, lst:40.5, green:25, city:"Jaipur"},
+  {name:"Nahargarh Biological Park", lat:26.9634, lng:75.8207, lst:34.5, green:60, city:"Jaipur"},
+];
+let ALL_ZONES = SEED_ZONES.map(z => ({...z}));
+
+let currentCity = 'Delhi';
+let activeZones = [];
+let lastRenderedAfter = null;
+let customZoneCounter = 0;
+
+  // ============================================================
+  // MAP ENGINE
+  // Leaflet owns the interactive map. Google Maps is integrated
+  // through reliable deep-links (no Google API key required).
+  // ============================================================
+  const DELHI_CENTER = [28.63, 77.18];
+  const JAIPUR_CENTER = [26.86, 75.76];
+
+  let map;
+  let simMapBefore = null;
+  let simMapAfter = null;
+  let heatLayer = null;
+  let simHeatBefore = null;
+  let simHeatAfter = null;
+  let markers = {};
+  let simBeforeMarker = null;
+  let simAfterMarker = null;
+  let mapReady = false;
+  let simMapsReady = false;
+
+  const HEAT_GRADIENT = {
+    0.15:'#3aa0d8',
+    0.30:'#52a074',
+    0.45:'#e8b23c',
+    0.60:'#e8752e',
+    0.75:'#d8431e',
+    0.90:'#a11f0e'
+  };
+
+  function googleMapsUrl(lat, lng, label='') {
+    const query = label ? `${lat},${lng} (${label})` : `${lat},${lng}`;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
+  function openGoogleMaps(lat, lng, label='') {
+    window.open(googleMapsUrl(lat, lng, label), '_blank', 'noopener,noreferrer');
+  }
+
+  function tileLayer(url, attribution) {
+    return L.tileLayer(url, {
+      maxZoom: 19,
+      minZoom: 3,
+      crossOrigin: true,
+      attribution
+    });
+  }
+
+  function createLeafletMap(elementId, options = {}) {
+    const m = L.map(elementId, {
+      zoomControl: options.zoomControl !== false,
+      scrollWheelZoom: options.scrollWheelZoom ?? true,
+      dragging: options.dragging ?? true,
+      doubleClickZoom: true,
+      boxZoom: true,
+      keyboard: true,
+      preferCanvas: true,
+      worldCopyJump: true
+    });
+
+    // OSM is the primary public tile source. A second layer can be selected
+    // from the layer control if desired.
+    const street = tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+    );
+    const dark = tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      '&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>'
+    );
+
+    street.addTo(m);
+    if (options.layersControl) {
+      L.control.layers({'Street': street, 'Dark': dark}, null, {position:'topright', collapsed:true}).addTo(m);
+    }
+    return m;
+  }
+
+  function initMainMap() {
+    if (mapReady) return;
+    map = createLeafletMap('map', {layersControl:true, scrollWheelZoom:true});
+    map.setView(DELHI_CENTER, 11);
+    map.on('click', e => generateZoneAtLatLng(e.latlng));
+    mapReady = true;
+  }
+
+  function initSimulationMaps() {
+    if (simMapsReady) return;
+
+    simMapBefore = createLeafletMap('simMapBefore', {scrollWheelZoom:false, dragging:true});
+    simMapAfter = createLeafletMap('simMapAfter', {scrollWheelZoom:false, dragging:true});
+    simMapBefore.setView(DELHI_CENTER, 14);
+    simMapAfter.setView(DELHI_CENTER, 14);
+    simMapsReady = true;
+
+    setTimeout(() => {
+      simMapBefore.invalidateSize(true);
+      simMapAfter.invalidateSize(true);
+    }, 100);
+  }
+
+  function invalidateAllMaps() {
+    if (mapReady) setTimeout(() => map.invalidateSize(true), 50);
+    if (simMapsReady) setTimeout(() => {
+      simMapBefore.invalidateSize(true);
+      simMapAfter.invalidateSize(true);
+    }, 50);
+  }
+
+  function colorForTemp(t){
+    if(t < 36) return '#3aa0d8';
+    if(t < 38) return '#52a074';
+    if(t < 40) return '#e8b23c';
+    if(t < 42) return '#e8752e';
+    if(t < 44) return '#d8431e';
+    return '#a11f0e';
+  }
+
+  function severityLabel(t){
+    if(t < 36) return 'Cool';
+    if(t < 38) return 'Mild';
+    if(t < 40) return 'Warm';
+    if(t < 42) return 'Hot';
+    if(t < 44) return 'Very Hot';
+    return 'Extreme';
+  }
+
+  function animateNumber(from, to, duration, onFrame, onDone){
+    const start = performance.now();
+    function tick(now){
+      const p = Math.min((now-start)/duration, 1);
+      const eased = 1 - Math.pow(1-p, 3);
+      const val = from + (to-from)*eased;
+      onFrame(val);
+      if(p < 1) requestAnimationFrame(tick);
+      else if(onDone) onDone();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function getContinuousHeatData(zones, baseLat, baseLng) {
+    const points = [];
+    zones.forEach(z => {
+      points.push([z.lat, z.lng, Math.max(0.08, Math.min(1, (z.lst-30)/20))]);
+    });
+
+    // Low-intensity background points make the heat surface continuous.
+    for(let i=0;i<7;i++){
+      for(let j=0;j<7;j++){
+        const lat = baseLat - 0.18 + i*0.06;
+        const lng = baseLng - 0.18 + j*0.06;
+        points.push([lat, lng, 0.08]);
+      }
+    }
+    return points;
+  }
+
+  function renderMainHeatLayer(center){
+    if(!mapReady) return;
+    if(heatLayer){ map.removeLayer(heatLayer); heatLayer=null; }
+    const heatData = getContinuousHeatData(activeZones, center[0], center[1]);
+    heatLayer = L.heatLayer(heatData, {
+      radius: 55,
+      blur: 38,
+      maxZoom: 16,
+      minOpacity: 0.30,
+      gradient: HEAT_GRADIENT
+    }).addTo(map);
+  }
+
+  function popupHtml(z) {
+    return `
+      <div>
+        <b>${escapeHtml(z.name)}</b><br>
+        LST: <strong>${z.lst.toFixed(1)}°C</strong> · ${severityLabel(z.lst)}<br>
+        <a class="google-map-link" href="${googleMapsUrl(z.lat,z.lng,z.name)}" target="_blank" rel="noopener noreferrer">↗ Open in Google Maps</a>
+      </div>`;
+  }
+
+  function escapeHtml(value){
+    return String(value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  }
+
+  function addZoneMarker(z){
+    if(!mapReady) return null;
+    const m = L.circleMarker([z.lat, z.lng], {
+      radius:9,
+      color:'#fff',
+      weight:2,
+      fillColor:colorForTemp(z.lst),
+      fillOpacity:0.95
+    }).addTo(map);
+
+    m.bindTooltip(`<b>${escapeHtml(z.name)}</b><br>LST: ${z.lst.toFixed(1)}°C · ${severityLabel(z.lst)}<br><span style="color:#52a074">Click to simulate</span>`, {direction:'top'});
+    m.bindPopup(popupHtml(z));
+    m.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      document.querySelector('.tab-btn[data-view="simulate"]').click();
+      document.getElementById('simZoneSelect').value = z.name;
+      lastRenderedAfter = null;
+      runSimulation(true);
+    });
+    markers[z.name] = m;
+    return m;
+  }
+
+  function addZoneToSimSelect(z){
+    const simSelect = document.getElementById('simZoneSelect');
+    const opt = document.createElement('option');
+    opt.value = z.name;
+    opt.textContent = `${z.name} (${z.lst.toFixed(1)}°C)`;
+    simSelect.appendChild(opt);
+  }
+
+  function switchCity(city) {
+    currentCity = city;
+    document.getElementById('btnDelhi').classList.toggle('active', city === 'Delhi');
+    document.getElementById('btnJaipur').classList.toggle('active', city === 'Jaipur');
+    document.getElementById('btnGlobal').classList.toggle('active', city === 'Global Search');
+
+    activeZones = ALL_ZONES.filter(z => z.city === city);
+
+    if(!mapReady) initMainMap();
+    Object.values(markers).forEach(m => map.removeLayer(m));
+    markers = {};
+
+    let center;
+    let zoom;
+    if(city === 'Delhi'){ center=DELHI_CENTER; zoom=11; }
+    else if(city === 'Jaipur'){ center=JAIPUR_CENTER; zoom=12; }
+    else { center=activeZones.length ? [activeZones[0].lat,activeZones[0].lng] : DELHI_CENTER; zoom=13; }
+
+    map.flyTo(center, zoom, {duration:0.8});
+    renderMainHeatLayer(center);
+    activeZones.forEach(addZoneMarker);
+
+    const simSelect = document.getElementById('simZoneSelect');
+    simSelect.innerHTML = '';
+    activeZones.forEach(addZoneToSimSelect);
+
+    renderZoneList();
+    if(document.getElementById('view-simulate').classList.contains('active')) runSimulation(false);
+    invalidateAllMaps();
+  }
+
+  function renderZoneList(){
+    const list = document.getElementById('zoneList');
+    list.innerHTML = '';
+    [...activeZones].sort((a,b)=>b.lst-a.lst).forEach(z=>{
+      const el = document.createElement('div');
+      el.className = 'zone-item' + (z.custom ? ' custom' : '');
+      el.innerHTML = `<span>${escapeHtml(z.name)}</span><span class="zone-temp" style="color:${colorForTemp(z.lst)}">${z.lst.toFixed(1)}°C</span>`;
+      el.onclick = () => {
+        if(mapReady) map.flyTo([z.lat,z.lng], 15, {duration:.6});
+        document.querySelector('.tab-btn[data-view="simulate"]').click();
+        document.getElementById('simZoneSelect').value = z.name;
+        lastRenderedAfter = null;
+        runSimulation(true);
+      };
+      list.appendChild(el);
+    });
+  }
+
+  // ============================================================
+  // SEARCH + GOOGLE MAPS
+  // ============================================================
+  function setSearchStatus(text, error=false){
+    const el=document.getElementById('mapSearchStatus');
+    el.textContent=text;
+    el.classList.toggle('err',error);
+  }
+
+  async function geocodeWithNominatim(query){
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, {
+      method:'GET',
+      headers:{'Accept':'application/json'}
+    });
+    if(!response.ok) throw new Error(`Geocoding service returned ${response.status}`);
+    return await response.json();
+  }
+
+  function addSearchResult(result){
+    const lat=parseFloat(result.lat);
+    const lng=parseFloat(result.lon);
+    const placeName=result.display_name || 'Selected location';
+    const shortName=(result.name || placeName.split(',')[0]).trim();
+    const mockLST=parseFloat((38 + Math.random()*8).toFixed(1));
+
+    // Remove previous global search result so repeated searches don't stack.
+    ALL_ZONES = ALL_ZONES.filter(z => !(z.city === 'Global Search' && z.searchResult));
+    const newZone={
+      name:shortName,
+      lat,lng,
+      lst:mockLST,
+      green:Math.floor(Math.random()*25),
+      city:'Global Search',
+      searchResult:true
+    };
+    ALL_ZONES.push(newZone);
+
+    document.getElementById('btnGlobal').style.display='block';
+    switchCity('Global Search');
+
+    map.flyTo([lat,lng], 14, {duration:.8});
+    if(markers[newZone.name]) markers[newZone.name].openPopup();
+    setSearchStatus(`Found: ${shortName}`);
+  }
+
+  async function doMapSearch(){
+    const input=document.getElementById('mapSearchInput');
+    const btn=document.getElementById('mapSearchBtn');
+    const q=input.value.trim();
+    if(!q){ setSearchStatus('Enter a city, locality or landmark.',true); return; }
+
+    btn.classList.add('map-loading');
+    btn.disabled=true;
+    setSearchStatus('Searching…');
+    try{
+      const results=await geocodeWithNominatim(q);
+      if(!results.length){
+        setSearchStatus(`No results for "${q}"`,true);
+        return;
+      }
+      addSearchResult(results[0]);
+    }catch(err){
+      console.error(err);
+      setSearchStatus('Search temporarily unavailable. Try again or use Google Maps.',true);
+    }finally{
+      btn.classList.remove('map-loading');
+      btn.disabled=false;
+    }
+  }
+
+  function resetMap(){
+    ALL_ZONES=SEED_ZONES.map(z=>({...z}));
+    customZoneCounter=0;
+    document.getElementById('mapSearchInput').value='';
+    setSearchStatus('');
+    document.getElementById('btnGlobal').style.display='none';
+    switchCity(currentCity==='Global Search' ? 'Delhi' : currentCity);
+  }
+
+  document.getElementById('mapSearchBtn').addEventListener('click',doMapSearch);
+  document.getElementById('mapSearchInput').addEventListener('keydown',e=>{ if(e.key==='Enter') doMapSearch(); });
+  document.getElementById('mapResetBtn').addEventListener('click',resetMap);
+  document.getElementById('googleMapsBtn').addEventListener('click',()=>{
+    if(mapReady){
+      const c=map.getCenter();
+      openGoogleMaps(c.lat,c.lng,'Current map view');
+    }
+  });
+
+  // ============================================================
+  // CLICK-TO-GENERATE HEAT ZONE
+  // ============================================================
+  function computeMockLST(latlng){
+    let nearest=null, minDist=Infinity;
+    activeZones.forEach(z=>{
+      const d=map.distance(latlng,[z.lat,z.lng]);
+      if(d<minDist){minDist=d;nearest=z;}
+    });
+    const cityAvg=39;
+    const base=nearest ? nearest.lst : cityAvg;
+    const decay=Math.min(minDist/3500,1);
+    const blended=base*(1-decay*.55)+cityAvg*(decay*.55);
+    const jitter=(Math.random()*2-1)*1.3;
+    return parseFloat(Math.max(33,Math.min(47,blended+jitter)).toFixed(1));
+  }
+
+  function generateZoneAtLatLng(latlng){
+    customZoneCounter++;
+    const lst=computeMockLST(latlng);
+    const newZone={
+      name:`Custom Point ${customZoneCounter}`,
+      lat:latlng.lat,
+      lng:latlng.lng,
+      lst,
+      green:Math.floor(Math.random()*20),
+      city:currentCity,
+      custom:true
+    };
+    ALL_ZONES.push(newZone);
+    activeZones.push(newZone);
+    addZoneMarker(newZone);
+    addZoneToSimSelect(newZone);
+    renderZoneList();
+    renderMainHeatLayer([latlng.lat,latlng.lng]);
+
+    const hint=document.getElementById('mapClickHint');
+    hint.textContent=`Generated zone: ${lst.toFixed(1)}°C · ${severityLabel(lst)}`;
+    hint.classList.add('flash');
+    clearTimeout(window._hintTimer);
+    window._hintTimer=setTimeout(()=>{
+      hint.textContent='Click anywhere on the map to generate a heat zone';
+      hint.classList.remove('flash');
+    },2200);
+  }
+
+  // Initialize immediately while the map tab is visible.
+  initMainMap();
+/* ---------------- VISUAL ANIMATION LOGIC ---------------- */
+function playGrowthAnimation(mode, v){
+  const treeBox = document.getElementById('vizTreeIcons');
+  if(treeBox) treeBox.innerHTML = '';
+  const roofFill = document.getElementById('vizRoofFill');
+  const paveBox = document.getElementById('vizPavementSwatch');
+  if(paveBox) paveBox.innerHTML = '';
+  const waterC = document.getElementById('vizWaterCircle');
+  const vine = document.getElementById('vizVine');
+
+  if(mode === 'cool'){
+    document.getElementById('vizTreeLabel').textContent = 'Trees planted: ' + v.trees;
+    document.getElementById('vizRoofLabel').textContent = 'Green roof ' + v.greenRoof + '%';
+    document.getElementById('vizPavementLabel').textContent = 'Cool pavement ' + v.pavement + '%';
+    document.getElementById('vizWaterLabel').textContent = v.water ? 'Water body added' : 'No water body';
+    document.getElementById('vizWallLabel').textContent = v.wall ? 'Wall greening' : 'No wall greening';
+
+    const n = Math.min(Math.max(Math.round(v.trees/50), v.trees>0?1:0), 10);
+    for(let i=0;i<n;i++){
+      const s = document.createElement('span');
+      s.className = 'tree-icon'; s.textContent = '🌳';
+      s.style.transitionDelay = (i*70) + 'ms';
+      treeBox.appendChild(s);
+    }
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      treeBox.querySelectorAll('.tree-icon').forEach(el=>el.classList.add('grown'));
+    }));
+
+    if(roofFill) { roofFill.style.background = 'var(--green)'; roofFill.style.width = v.greenRoof + '%'; }
+
+    for(let i=0;i<5;i++){
+      const sq = document.createElement('div'); sq.className = 'pave-sq';
+      const lightness = 32 + (v.pavement/100)*48;
+      sq.style.background = `hsl(190,${v.pavement>0?35:0}%,${lightness}%)`;
+      sq.style.transitionDelay = (i*40)+'ms';
+      paveBox.appendChild(sq);
+    }
+
+    if(waterC) { waterC.style.background = 'var(--cool)'; waterC.classList.toggle('active', v.water); }
+    if(vine) { vine.classList.remove('withered'); vine.style.height = v.wall ? '46px' : '5px'; }
+
+  } else {
+    document.getElementById('vizTreeLabel').textContent = 'Tree cover lost ' + v.deforest + '%';
+    document.getElementById('vizRoofLabel').textContent = 'Dark pavement ' + v.darkPavement + '%';
+    document.getElementById('vizPavementLabel').textContent = 'Waste-heat ACs: ' + v.generators;
+    document.getElementById('vizWaterLabel').textContent = 'Water body intact';
+    document.getElementById('vizWallLabel').textContent = 'Wall greening';
+
+    const total = 8;
+    const wiltCount = Math.round(total * (v.deforest/100));
+    for(let i=0;i<total;i++){
+      const s = document.createElement('span');
+      s.className = 'tree-icon grown'; s.textContent = '🌳';
+      treeBox.appendChild(s);
+    }
+    const icons = [...treeBox.querySelectorAll('.tree-icon')];
+    requestAnimationFrame(()=>{
+      icons.slice(0, wiltCount).forEach((el,i)=>{
+        setTimeout(()=>{ el.classList.add('wilt'); el.textContent = '🥀'; }, i*90);
+      });
+    });
+
+    if(roofFill) { roofFill.style.background = 'var(--hot)'; roofFill.style.width = v.darkPavement + '%'; }
+
+    const flameCount = Math.min(Math.round(v.generators/10), 5);
+    for(let i=0;i<5;i++){
+      const sq = document.createElement('div'); sq.className = 'pave-sq';
+      sq.style.transitionDelay = (i*40)+'ms';
+      if(i < flameCount){
+        sq.style.background = 'transparent'; sq.style.fontSize = '13px'; sq.textContent = '🔥';
+      } else { sq.style.background = '#3a3f4a'; }
+      paveBox.appendChild(sq);
+    }
+    if(waterC) { waterC.style.background = 'var(--cool)'; waterC.classList.remove('active'); }
+    if(vine) { vine.classList.remove('withered'); vine.style.height = '5px'; }
+  }
+}
+
+/* ---------------- SIMULATION LOGIC & SPLIT MAPS ---------------- */
+let simMode = 'cool';
+
+function setSimMode(mode){
+  simMode = mode;
+  document.getElementById('modeBtnCool').classList.toggle('active', mode==='cool');
+  document.getElementById('modeBtnHeat').classList.toggle('active', mode==='heat');
+  document.getElementById('coolFields').style.display = mode==='cool' ? '' : 'none';
+  document.getElementById('heatFields').style.display = mode==='heat' ? '' : 'none';
+  document.getElementById('autoOptBtn').style.display = mode==='cool' ? 'block' : 'none';
+  document.getElementById('autoOptimizeGuide').style.display = 'none';
+  document.getElementById('vizPanel').classList.toggle('heat-mode', mode==='heat');
+  
+  lastRenderedAfter = null;
+  runSimulation(true);
+}
+
+function updateSliderVal(id, labelId, suffix) {
+  document.getElementById(id).addEventListener('input', e => {
+    document.getElementById(labelId).textContent = e.target.value + suffix;
+    runSimulation(true);
+  });
+}
+updateSliderVal('greenRoof', 'valGreenRoof', '%');
+updateSliderVal('trees', 'valTrees', '');
+updateSliderVal('pavement', 'valPavement', '%');
+updateSliderVal('deforest', 'valDeforest', '%');
+updateSliderVal('darkPavement', 'valDarkPavement', '%');
+updateSliderVal('generators', 'valGenerators', '');
+document.getElementById('waterBody').addEventListener('change', () => runSimulation(true));
+document.getElementById('wallGreening').addEventListener('change', () => runSimulation(true));
+document.getElementById('simZoneSelect').addEventListener('change', () => {
+    lastRenderedAfter = null; 
+    runSimulation(true);
+});
+
+function autoOptimizeZone() {
+  document.getElementById('greenRoof').value = 45; document.getElementById('valGreenRoof').textContent = '45%';
+  document.getElementById('trees').value = 350; document.getElementById('valTrees').textContent = '350';
+  document.getElementById('pavement').value = 30; document.getElementById('valPavement').textContent = '30%';
+  document.getElementById('waterBody').checked = false; 
+  document.getElementById('wallGreening').checked = true;
+  
+  runSimulation(true); 
+
+  const guide = document.getElementById('autoOptimizeGuide');
+  const steps = document.getElementById('optimizeSteps');
+  guide.style.display = 'block';
+  steps.innerHTML = `
+    <li><strong>1. Procure & Plant 350 Trees:</strong> Requisition native shade saplings from municipal nurseries. Plant at 4m intervals.</li>
+    <li><strong>2. Green Roofs & Reflective Paint:</strong> Apply high-albedo solar-reflective coating to 45% of flat concrete rooftops.</li>
+    <li><strong>3. Cool Pavements:</strong> Resurface 30% of asphalt parking lots and alleys using porous, light-colored pavers.</li>
+    <li><strong>4. Vertical Greening:</strong> Install wire-trellis systems supporting creeping vines on South/West facades.</li>
+  `;
+}
+
+function runSimulation(triggeredByUser = true){
+  initSimulationMaps();
+  const zoneName = document.getElementById('simZoneSelect').value;
+  const zone = activeZones.find(z => z.name === zoneName) || activeZones[0];
+  if(!zone) return;
+
+  // Sync and center the Split Maps on the selected zone
+  simMapBefore.setView([zone.lat, zone.lng], 14);
+  simMapAfter.setView([zone.lat, zone.lng], 14);
+
+  let delta = 0, vizValues;
+  if(simMode === 'cool'){
+    const gr = +document.getElementById('greenRoof').value;
+    const tr = +document.getElementById('trees').value;
+    const pv = +document.getElementById('pavement').value;
+    const wb = document.getElementById('waterBody').checked;
+    const wg = document.getElementById('wallGreening').checked;
+    delta = Math.min((gr * 0.015) + (tr/500 * 0.8) + (pv * 0.012) + (wb ? 1.0 : 0) + (wg ? 0.4 : 0), 6.5);
+    vizValues = {greenRoof: gr, trees: tr, pavement: pv, water: wb, wall: wg};
+  } else {
+    document.getElementById('autoOptimizeGuide').style.display = 'none';
+    const df = +document.getElementById('deforest').value;
+    const dp = +document.getElementById('darkPavement').value;
+    const gn = +document.getElementById('generators').value;
+    delta = -Math.min((df * 0.02) + (dp * 0.014) + (gn/50 * 0.6), 6.0);
+    vizValues = {deforest: df, darkPavement: dp, generators: gn};
+  }
+  
+  const after = zone.lst - delta;
+  const mag = Math.abs(delta);
+  const startFrom = lastRenderedAfter !== null ? lastRenderedAfter : zone.lst;
+  lastRenderedAfter = after;
+
+  document.getElementById('beforeZoneName').textContent = zone.name;
+  document.getElementById('beforeTemp').textContent = zone.lst.toFixed(1)+'°C';
+  document.getElementById('lblTemp').textContent = delta >= 0 ? 'Surface temperature reduction' : 'Surface temperature increase';
+  document.getElementById('lblEnergy').textContent = delta >= 0 ? 'Estimated AC energy saved' : 'Additional AC energy demand';
+  document.getElementById('tempDelta').textContent = Math.abs(delta) > 0.05 ? (delta >= 0 ? `↓ ${mag.toFixed(1)}°C` : `↑ ${mag.toFixed(1)}°C`) : '–';
+
+  // Smooth UI Numbers
+  animateNumber(startFrom, after, 700, (val)=>{
+    document.getElementById('afterTemp').textContent = val.toFixed(1)+'°C';
+    document.getElementById('afterTemp').style.color = delta >= 0 ? 'var(--green)' : 'var(--hot)';
+  });
+
+  const pct = Math.min((mag / 6.5) * 100, 100);
+  animateNumber(0, pct, 700, v => {
+    document.getElementById('tempReducePct').textContent = v.toFixed(0)+'%';
+    document.getElementById('barTemp').style.width = v+'%';
+    document.getElementById('barTemp').style.background = delta >= 0 ? 'var(--cool)' : 'var(--hot)';
+  });
+
+  const engPct = Math.min(mag * 3.2, 32);
+  animateNumber(0, engPct, 700, v => {
+    document.getElementById('energyPct').textContent = v.toFixed(0)+'%';
+    document.getElementById('barEnergy').style.width = (engPct/32*100)+'%';
+    document.getElementById('barEnergy').style.background = delta >= 0 ? 'var(--green)' : 'var(--hot)';
+  });
+
+  // ====== VISUAL MAP UPDATE LOGIC ======
+  const beforeData = getContinuousHeatData(activeZones, zone.lat, zone.lng);
+  if(simHeatBefore) simMapBefore.removeLayer(simHeatBefore);
+  simHeatBefore = L.heatLayer(beforeData, {
+    radius: 85, blur: 65, maxZoom: 13, gradient: HEAT_GRADIENT
+  }).addTo(simMapBefore);
+
+  const afterZones = activeZones.map(z => z.name === zone.name ? { ...z, lst: after } : z);
+  const afterData = getContinuousHeatData(afterZones, zone.lat, zone.lng);
+  if(simHeatAfter) simMapAfter.removeLayer(simHeatAfter);
+  simHeatAfter = L.heatLayer(afterData, {
+    radius: 85, blur: 65, maxZoom: 13, gradient: HEAT_GRADIENT
+  }).addTo(simMapAfter);
+  // ======================================
+
+  if(triggeredByUser && typeof playGrowthAnimation === 'function'){
+     playGrowthAnimation(simMode, vizValues);
+  }
+}
+
+/* ---------------- CITIZEN ACTION CARDS ---------------- */
+const CITIZEN_ACTIONS = [
+  {title:'Plant a native shade tree', brief:'Neem, Peepal or Arjun on your street cuts ambient heat.', clin:'<b>Action:</b> Source saplings locally and organize with neighbors to plant them in unshaded footpaths. Mature canopy blocks radiation from hitting asphalt.'},
+  {title:'Start a terrace or kitchen garden', brief:'Potted plants reduce roof-surface temperature by absorbing heat.', clin:'<b>Action:</b> Even a few square meters of soil and vegetation on a concrete roof prevents solar radiation from penetrating the ceiling below.'},
+  {title:'Use light/reflective roof paint', brief:'White lime-wash reflects sunlight instead of storing it.', clin:'<b>Action:</b> A cheap application of solar-reflective white paint on a flat roof can drop indoor temperatures by up to 5°C during peak afternoon heat.'},
+  {title:'Set AC a couple degrees warmer', brief:'24°C instead of 18°C cuts compressor load and waste heat.', clin:'<b>Action:</b> The harder your AC works, the more waste heat it vents into the street outside. Setting it to 24°C saves your bill and your neighborhood.'}
+];
+
+const cGrid = document.getElementById('citizenCards');
+CITIZEN_ACTIONS.forEach(c => {
+  cGrid.innerHTML += `
+    <div style="background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--green); border-radius:8px; padding:20px;">
+      <h4 style="font-size:15px; margin-bottom:8px;">${c.title}</h4>
+      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">${c.brief}</p>
+      <details>
+        <summary>View Elaboration</summary>
+        <div class="details-content">${c.clin}</div>
+      </details>
+    </div>
+  `;
+});
+
+/* ---------------- HEALTH CARDS ---------------- */
+const HEALTH_DATA = [
+  {title:'Heat stroke & cardiovascular strain', brief:'Sustained exposure sharply raises risk of heat exhaustion.', clin:'<b>Clinical Physiology:</b> Core body temp >40°C triggers multi-organ dysfunction and severe cardiovascular strain as the heart pumps faster to route blood to the skin for cooling.'},
+  {title:'Lethal Wet-Bulb Globe Temperatures', brief:'Surface heat combined with summer humidity limits human sweat evaporation.', clin:'<b>WBGT Thresholds:</b> A WBGT above 32°C is Extreme Danger. At 35°C WBGT, a healthy human resting in the shade is at risk of fatality within hours.'},
+  {title:'Disrupted Sleep Architecture', brief:'Nighttime concrete radiation keeps ambient temps elevated past sunset.', clin:'<b>Physiology:</b> The body requires a drop in core temperature to initiate deep REM sleep. Heat islands delay this, compounding chronic fatigue.'},
+  {title:'Energy Poverty & Inequality', brief:'Hotter homes push up AC and cooler use — a massive burden for lower-income households.', clin:'<b>Demographics:</b> Vulnerable settlements exist in areas with zero canopy. They bear the brunt of the heat while lacking the financial means for active cooling.'}
+];
+
+const hGrid = document.getElementById('healthCards');
+HEALTH_DATA.forEach(h => {
+  hGrid.innerHTML += `
+    <div style="background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--hot); border-radius:8px; padding:20px;">
+      <h4 style="font-size:15px; margin-bottom:8px;">${h.title}</h4>
+      <p style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">${h.brief}</p>
+      <details>
+        <summary>View Clinical Elaborations</summary>
+        <div class="details-content">${h.clin}</div>
+      </details>
+    </div>
+  `;
+});
+
+/* ---------------- GOV PROJECTS & BUDGET CHART ---------------- */
+const GOV_PROJECTS = [
+  {title:'Cool Roof Mission Subsidy', desc:'Subsidise high-albedo retrofits in top heat-island wards.', cost:'₹ 120 Cr', detail:'Covers procurement of reflective limestone-based paint and labor subsidies for 500,000 households.'},
+  {title:'Miyawaki Micro-Forests', desc:'Dense native-species micro-forests on vacant municipal land.', cost:'₹ 45 Cr', detail:'Funds 150 acres of rapid-growth dense native canopy, reducing local ambient temps by 3°C.'},
+  {title:'Blue-Green Corridors', desc:'Restore floodplain vegetation and urban wetlands.', cost:'₹ 650 Cr', detail:'Major capital required for land acquisition and structural wetlands to restore the natural cooling corridor.'},
+  {title:'District Cooling Systems', desc:'Shared chilled-water cooling for commercial hubs.', cost:'₹ 385 Cr', detail:'Replaces inefficient split ACs with a centralized subterranean chiller plant, cutting waste heat venting into streets.'}
+];
+
+const gGrid = document.getElementById('govCards');
+GOV_PROJECTS.forEach(p => {
+  gGrid.innerHTML += `
+    <div style="background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px;">
+      <h4 style="font-size:16px;">${p.title}</h4>
+      <p style="font-size:13px; color:var(--text-dim); margin:8px 0;">${p.desc}</p>
+      <div style="font-family:'JetBrains Mono'; font-weight:700; color:var(--gov); margin-top:10px;">Est. Expense: ${p.cost}</div>
+      <details>
+        <summary>View Budget Elaborations</summary>
+        <div class="details-content">${p.detail}</div>
+      </details>
+    </div>
+  `;
+});
+
+const ctx = document.getElementById('budgetChart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Defence', 'Transport & Highways', 'Railways', 'Education', 'Health', 'Urban Cooling Mission (₹1,200 Cr)'],
+        datasets: [{
+            data: [621941, 278000, 255393, 120628, 90959, 1200],
+            backgroundColor: ['#3a3f66', '#d8431e', '#e8b23c', '#52a074', '#3aa0a0', '#ffffff'],
+            borderWidth: 2, borderColor: '#12151b'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#eee8dc', font: {family: 'Inter', size: 11} } },
+            tooltip: { callbacks: { label: function(c) { return ' ₹' + c.raw.toLocaleString() + ' Crores'; } } }
+        }
+    }
+});
+
+// ============================================================
+// TAB NAVIGATION + LEAFLET INVALIDATION
+// ============================================================
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+
+    if(btn.dataset.view === 'map'){
+      setTimeout(()=>{ initMainMap(); map.invalidateSize(true); },80);
+    }
+
+    if(btn.dataset.view === 'simulate'){
+      initSimulationMaps();
+      setTimeout(()=>{
+        simMapBefore.invalidateSize(true);
+        simMapAfter.invalidateSize(true);
+        runSimulation(false);
+      },80);
+    }
+  });
+});
+
+
+// Utility exposed globally so existing/extra marker creation code can make
+// every pre-selected dot jump straight to the simulator.
+window.enableSimulatorForMarker = function(marker, lat, lng, name) {
+  return makeLocationClickable(marker, lat, lng, name);
+};
+
+// Boot the app
+initMainMap();
+
+// Re-attach the click handler whenever the city/map is switched.
+if (typeof switchCity === 'function' && !window.__switchCityWrapped) {
+  const __originalSwitchCity = switchCity;
+  window.switchCity = function(city) {
+    const result = __originalSwitchCity(city);
+    setTimeout(attachMainMapClickToSimulator, 50);
+    return result;
+  };
+  window.__switchCityWrapped = true;
+}
+
+switchCity('Delhi');
+
+// Any empty click on the main map immediately opens the simulator.
+function attachMainMapClickToSimulator() {
+  if (typeof map === 'undefined' || !map) return;
+  if (map.__simulatorClickAttached) return;
+
+  map.on('click', function(e) {
+    openSimulatorForLocation(
+      e.latlng.lat,
+      e.latlng.lng,
+      `Selected location (${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)})`,
+      "map"
+    );
+  });
+
+  map.__simulatorClickAttached = true;
+}
+setTimeout(attachMainMapClickToSimulator, 0);
+
+window.addEventListener('resize', invalidateAllMaps);
+window.addEventListener('orientationchange', ()=>setTimeout(invalidateAllMaps,250));
+
+</script>
+</body>
+</html>
